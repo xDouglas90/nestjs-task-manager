@@ -11,7 +11,7 @@ import { TaskStatus } from '../tasks.model';
 import { v4 as uuidv4 } from 'uuid';
 
 @Entity('tasks')
-export class Task extends BaseEntity {
+export class TaskEntity extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
