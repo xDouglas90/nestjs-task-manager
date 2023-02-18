@@ -106,9 +106,10 @@ export class TasksController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id') id: string): Promise<void> {
+  async delete(@Param('id') id: string): Promise<void> {
     try {
-      return await this.tasksService.remove(id);
+      await this.tasksService.delete(id);
+      return;
     } catch (err) {
       throw new HttpException(
         {

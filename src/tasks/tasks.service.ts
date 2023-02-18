@@ -1,56 +1,68 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Task, TaskStatus } from './tasks.model';
 
-import { v4 as uuidv4 } from 'uuid';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import { Repository } from 'typeorm';
+import { TaskEntity } from './entities/task.entity';
 
 @Injectable()
 export class TasksService {
-  private tasks: Task[] = [];
+  constructor(
+    @Inject('TASK_REPOSITORY')
+    private readonly taskRepository: Repository<Task>,
+  ) {}
 
   async insert(createTaskDto: CreateTaskDto): Promise<Task> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
-        const { title, description } = createTaskDto;
-
-        const newTask: Task = {
-          id: uuidv4(),
-          title,
-          description,
+        const response = await this.taskRepository.insert({
+          ...createTaskDto,
           status: TaskStatus.OPEN,
-        };
+        });
 
-        this.tasks.push(newTask);
-        resolve(newTask);
+        const { id } = response.generatedMaps[0];
+
+        const created: TaskEntity = new TaskEntity();
+
+        created.id = id;
+        created.title = createTaskDto.title;
+        created.description = createTaskDto.description;
+        created.status = TaskStatus.OPEN;
+
+        await this.taskRepository.save(created);
+
+        resolve(created);
       } catch (err) {
         reject({
           code: err.code,
-          details: err.details,
+          detail: err.details,
         });
       }
     });
   }
 
   async findAll(): Promise<Task[]> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
-        resolve(this.tasks);
+        const tasks = await this.taskRepository.find();
+
+        resolve(tasks);
       } catch (err) {
         reject({
           code: err.code,
-          details: err.details,
+          detail: err.details,
         });
       }
     });
   }
 
   async filteredFind(filterDto: any): Promise<Task[]> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
         const { status, search } = filterDto;
 
-        let tasks = this.tasks;
+        let tasks = await this.taskRepository.find();
 
         if (status) {
           tasks = tasks.filter(
@@ -70,96 +82,101 @@ export class TasksService {
       } catch (err) {
         reject({
           code: err.code,
-          details: err.details,
+          detail: err.details,
         });
       }
     });
   }
 
   async findOne(id: string): Promise<Task> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
-        const found = this.tasks.find((task) => task.id === id);
+        const found = await this.taskRepository.findOne({
+          where: {
+            id,
+          },
+        });
 
-        if (!found) throw new Error('Task not found');
+        if (!found) {
+          reject({
+            code: '404',
+            detail: 'Task not found',
+          });
+        }
 
         resolve(found);
       } catch (err) {
-        console.log(err.code, err.details);
         reject({
           code: err.code,
-          details: err.details,
+          detail: err.details,
         });
       }
     });
   }
 
   async update(id: string, updateTaskDto: UpdateTaskDto): Promise<Task> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
-        const task = this.tasks.find((task) => task.id === id);
-
-        if (!task) throw new Error('Task not found');
-
-        const updatedTask = {
-          ...task,
+        const response = await this.taskRepository.preload({
+          id,
           ...updateTaskDto,
-        };
+        });
 
-        this.tasks = this.tasks.map((task) =>
-          task.id === id ? updatedTask : task,
-        );
+        if (!response) {
+          reject({
+            code: '404',
+            detail: 'Task not found',
+          });
+        }
 
-        resolve(updatedTask);
+        await this.taskRepository.save(response);
       } catch (err) {
         reject({
           code: err.code,
-          details: err.details,
+          detail: err.details,
         });
       }
     });
   }
 
   async updateStatus(id: string, status: TaskStatus): Promise<Task> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
-        const task = this.tasks.find((task) => task.id === id);
-
-        if (!task) throw new Error('Task not found');
-
-        const updatedTask = {
-          ...task,
-          status,
-        };
-
-        this.tasks = this.tasks.map((task) =>
-          task.id === id ? updatedTask : task,
-        );
-
-        resolve(updatedTask);
+        const found = await this.findOne(id);
+        if (!found) {
+          reject({
+            code: '404',
+            detail: 'Task not found',
+          });
+        }
+        found.status = status;
+        await this.taskRepository.save(found);
+        resolve(found);
       } catch (err) {
         reject({
           code: err.code,
-          details: err.details,
+          detail: err.details,
         });
       }
     });
   }
 
-  async remove(id: string): Promise<void> {
-    return new Promise((resolve, reject) => {
+  async delete(id: string): Promise<boolean> {
+    return new Promise(async (resolve, reject) => {
       try {
-        const found = this.findOne(id);
-
-        if (!found) throw new Error('Task not found');
-
-        this.tasks = this.tasks.filter((task) => task.id !== id);
-
-        resolve();
+        const response = await this.taskRepository.delete(id);
+        const { affected } = response;
+        if (affected === 0) {
+          reject({
+            code: 404,
+            detail: 'Course not found',
+          });
+        }
+        resolve(true);
       } catch (err) {
         reject({
           code: err.code,
-          details: err.details,
+          detail: err.details,
         });
       }
     });
