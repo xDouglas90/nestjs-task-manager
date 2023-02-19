@@ -7,7 +7,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { TaskStatus } from '../tasks.model';
+import { TaskStatus } from '../task-status.enum';
 import { v4 as uuidv4 } from 'uuid';
 
 @Entity('tasks')
