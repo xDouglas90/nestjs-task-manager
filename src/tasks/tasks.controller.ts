@@ -14,8 +14,9 @@ import {
 import { CreateTaskDto } from './dto/create-task.dto';
 import { GetTasksFilterDto } from './dto/get-tasks-filter.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import { TaskEntity } from './entities/task.entity';
 import { TaskStatusValidationPipe } from './pipes/task-status-validation.pipe';
-import { Task, TaskStatus } from './tasks.model';
+import { TaskStatus } from './task-status.enum';
 import { TasksService } from './tasks.service';
 
 @Controller('tasks')
@@ -23,7 +24,7 @@ export class TasksController {
   constructor(private tasksService: TasksService) {}
 
   @Post()
-  async insert(@Body() createTaskDto: CreateTaskDto): Promise<Task> {
+  async insert(@Body() createTaskDto: CreateTaskDto): Promise<TaskEntity> {
     try {
       return await this.tasksService.insert(createTaskDto);
     } catch (err) {
@@ -37,13 +38,9 @@ export class TasksController {
   }
 
   @Get()
-  async find(@Query() filterDto: GetTasksFilterDto): Promise<Task[]> {
+  async find(@Query() filterDto: GetTasksFilterDto): Promise<TaskEntity[]> {
     try {
-      if (Object.keys(filterDto).length) {
-        return await this.tasksService.filteredFind(filterDto);
-      }
-
-      return await this.tasksService.findAll();
+      return await this.tasksService.find(filterDto);
     } catch (err) {
       throw new HttpException(
         {
@@ -55,7 +52,7 @@ export class TasksController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<Task> {
+  async findOne(@Param('id') id: string): Promise<TaskEntity> {
     try {
       return await this.tasksService.findOne(id);
     } catch (err) {
@@ -73,7 +70,7 @@ export class TasksController {
   async update(
     @Param('id') id: string,
     @Body() updateTaskDto: UpdateTaskDto,
-  ): Promise<Task> {
+  ): Promise<TaskEntity> {
     try {
       return await this.tasksService.update(id, updateTaskDto);
     } catch (err) {
@@ -91,7 +88,7 @@ export class TasksController {
   async updateStatus(
     @Param('id') id: string,
     @Body('status', TaskStatusValidationPipe) status: TaskStatus,
-  ): Promise<Task> {
+  ): Promise<TaskEntity> {
     try {
       return await this.tasksService.updateStatus(id, status);
     } catch (err) {
