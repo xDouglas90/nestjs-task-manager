@@ -4,10 +4,10 @@ export class GetUsersFilterDto {
   @IsOptional()
   @IsNotEmpty()
   @IsString()
-  search: string;
+  readonly search: string;
 
   @IsOptional()
   @IsNotEmpty()
   @IsString()
-  email: string;
+  readonly email: string;
 }
