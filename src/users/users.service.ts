@@ -1,43 +1,19 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Repository } from 'typeorm';
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { GetUsersFilterDto } from './dto/get-users-filter.dto';
 import { UserEntity } from './entities/user.entity';
+import * as bcrypt from 'bcrypt';
+import { AuthService } from 'src/auth/auth.service';
+import { MessagesHelper } from 'src/helpers/messages.helpers';
 
 @Injectable()
 export class UsersService {
   constructor(
     @Inject('USER_REPOSITORY')
     private readonly usersRepository: Repository<UserEntity>,
+    private readonly authService: AuthService,
   ) {}
-
-  async insert(user: CreateUserDto): Promise<UserEntity> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const response = await this.usersRepository.insert(user);
-
-        const { id } = response.generatedMaps[0];
-
-        const created: UserEntity = new UserEntity();
-
-        created.id = id;
-        created.firstName = user.firstName;
-        created.lastName = user.lastName;
-        created.email = user.email;
-        created.password = user.password;
-
-        await this.usersRepository.save(created);
-
-        resolve(created);
-      } catch (err) {
-        reject({
-          code: err.code,
-          detail: err.details,
-        });
-      }
-    });
-  }
 
   async find(filterDto: GetUsersFilterDto): Promise<UserEntity[]> {
     return new Promise(async (resolve, reject) => {
@@ -96,17 +72,44 @@ export class UsersService {
   async update(id: string, user: UpdateUserDto): Promise<UserEntity> {
     return new Promise(async (resolve, reject) => {
       try {
-        const userToUpdate = await this.findOne(id);
+        const userToUpdate = await this.usersRepository.findOne({
+          where: { id },
+        });
+        const updateParams = { ...user };
 
-        if (!userToUpdate) reject({ code: 404, detail: 'User not found' });
+        if (!userToUpdate)
+          reject({ code: 404, detail: MessagesHelper.USER_NOT_FOUND });
 
-        const updated = await this.usersRepository.merge(userToUpdate, user);
+        if (user.password) {
+          const isSame = await bcrypt.compare(
+            user.password,
+            userToUpdate.password,
+          );
+
+          if (isSame) {
+            reject({
+              code: 400,
+              detail: MessagesHelper.SAME_PASSWORD,
+            });
+          }
+
+          const password = await this.authService.hashPassword(
+            user.password,
+            userToUpdate.salt,
+          );
+
+          updateParams.password = password;
+        }
+
+        const updated = await this.usersRepository.merge(
+          userToUpdate,
+          updateParams,
+        );
 
         await this.usersRepository.save(updated);
 
         resolve(updated);
       } catch (err) {
-        console.log(err);
         reject({
           code: err.code,
           detail: err.detail,
@@ -118,7 +121,7 @@ export class UsersService {
   async remove(id: string): Promise<boolean> {
     return new Promise(async (resolve, reject) => {
       try {
-        const response = await this.usersRepository.delete(id);
+        const response = await this.usersRepository.softDelete(id);
         const { affected } = response;
         if (affected === 0) {
           reject({
