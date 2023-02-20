@@ -10,7 +10,9 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { GetTasksFilterDto } from './dto/get-tasks-filter.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
@@ -19,7 +21,8 @@ import { TaskStatusValidationPipe } from './pipes/task-status-validation.pipe';
 import { TaskStatus } from './task-status.enum';
 import { TasksService } from './tasks.service';
 
-@Controller('tasks')
+@Controller('api/v1/tasks')
+@UseGuards(AuthGuard('jwt'))
 export class TasksController {
   constructor(private tasksService: TasksService) {}
 
@@ -56,7 +59,6 @@ export class TasksController {
     try {
       return await this.tasksService.findOne(id);
     } catch (err) {
-      console.log(err);
       throw new HttpException(
         {
           reason: err?.detail,
@@ -74,7 +76,6 @@ export class TasksController {
     try {
       return await this.tasksService.update(id, updateTaskDto);
     } catch (err) {
-      console.log(err);
       throw new HttpException(
         {
           reason: err?.detail,
